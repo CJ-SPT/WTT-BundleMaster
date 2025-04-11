@@ -6,7 +6,7 @@ using WTT_BundleMaster.Services;
 
 namespace WTT_BundleMaster;
 
-public class ReplacerService
+public class ReplacerService : IDisposable
 {
     private readonly AssetsManager _assetsManager = new AssetsManager();
     private readonly LogService _logger;
@@ -16,6 +16,11 @@ public class ReplacerService
     {
         _logger = logger;
         _config = config;
+    }
+    
+    public void Dispose()
+    {
+        _assetsManager.UnloadAll();
     }
     
     private bool IsBundleFile(string filePath)
@@ -89,22 +94,53 @@ public class ReplacerService
     public async Task ProcessSingleBundle(string inputPath, string outputPath, 
         Dictionary<string, string> cabMap, Dictionary<long, long> pathMap)
     {
-        using var tempFile = new TempFile();
-        
-        var bundle = _assetsManager.LoadBundleFile(inputPath);
-        var assetsFile = _assetsManager.LoadAssetsFileFromBundle(bundle, 0);
-
-        bool modified = ProcessCabDependencies(assetsFile, cabMap);
-        modified |= ProcessAssetsFile(_assetsManager, assetsFile, pathMap);
-
-        if (modified)
+        // Generate unique temp filenames
+        string tempOutputPath = Path.GetTempFileName();
+        string finalTempPath = Path.GetTempFileName();
+    
+        try
         {
-            SaveModifiedBundle(bundle, assetsFile, tempFile.Path);
-            _assetsManager.UnloadBundleFile(bundle);
-            _assetsManager.UnloadAssetsFile(assetsFile);
-            File.Copy(tempFile.Path, outputPath, overwrite: true);
+            // Load and process bundle
+            var bundle = _assetsManager.LoadBundleFile(inputPath);
+            var assetsFile = _assetsManager.LoadAssetsFileFromBundle(bundle, 0);
+
+            bool modified = ProcessCabDependencies(assetsFile, cabMap);
+            modified |= ProcessAssetsFile(_assetsManager, assetsFile, pathMap);
+
+            if (modified)
+            {
+                // 1. Save to first temp file
+                SaveModifiedBundle(bundle, assetsFile, tempOutputPath);
+            
+                // 2. Immediately unload original resources
+                _assetsManager.UnloadBundleFile(bundle);
+                _assetsManager.UnloadAssetsFile(assetsFile);
+
+                // 3. Handle compression in isolated scope
+                if (_config.Config.CompressBundles)
+                {
+                    CompressModifiedBundle(tempOutputPath, finalTempPath);
+                    File.Move(finalTempPath, outputPath, overwrite: true);
+                }
+                else
+                {
+                    File.Move(tempOutputPath, outputPath, overwrite: true);
+                }
+            }
+            else
+            {
+                // Direct copy if no modifications
+                File.Copy(inputPath, outputPath, overwrite: true);
+            }
+        }
+        finally
+        {
+            // Robust cleanup with retry logic
+            SafeDelete(tempOutputPath);
+            SafeDelete(finalTempPath);
         }
     }
+
 
     private bool ProcessAssetsFile(AssetsManager am, AssetsFileInstance assetsFile, Dictionary<long, long> pathMap)
     {
@@ -222,17 +258,43 @@ public class ReplacerService
     private void SaveModifiedBundle(BundleFileInstance bundle, AssetsFileInstance assetsFile, string outputPath)
     {
         bundle.file.BlockAndDirInfo.DirectoryInfos[0].SetNewData(assetsFile.file);
-        
+    
         using var stream = File.Create(outputPath);
         using var writer = new AssetsFileWriter(stream);
+        bundle.file.Write(writer);
+    }
 
-        if (_config.Config.CompressBundles)
+    private void CompressModifiedBundle(string inputPath, string outputPath)
+    {
+        var compressManager = new AssetsManager();
+        var bundle = compressManager.LoadBundleFile(inputPath);
+    
+        try
         {
-            bundle.file.Pack(writer, AssetBundleCompressionType.LZMA);
+            using var outputStream = File.Create(outputPath);
+            using var outputWriter = new AssetsFileWriter(outputStream);
+            bundle.file.Pack(outputWriter, AssetBundleCompressionType.LZMA);
         }
-        else
+        finally
         {
-            bundle.file.Write(writer);
+            compressManager.UnloadBundleFile(bundle);
+        }
+    }
+
+    private void SafeDelete(string path, int maxRetries = 3)
+    {
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+                return;
+            }
+            catch
+            {
+                Thread.Sleep(10 * (i + 1));
+            }
         }
     }
 }

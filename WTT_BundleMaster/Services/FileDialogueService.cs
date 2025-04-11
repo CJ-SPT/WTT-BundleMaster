@@ -19,23 +19,23 @@ public class WpfFileDialogService : IFileDialogService
     
     public async Task<string> PickDirectoryAsync(string title)
     {
-        return await _dispatcher.InvokeAsync(() =>
+        return await Task.Run(() =>
         {
             var dialog = new VistaFolderBrowserDialog
             {
                 Description = title,
                 UseDescriptionForTitle = true
             };
-            
+        
             return dialog.ShowDialog() == true 
                 ? dialog.SelectedPath 
                 : null;
-        }, DispatcherPriority.ApplicationIdle);
+        }).ConfigureAwait(false);
     }
 
     public async Task<string> PickSaveFileAsync(string filter, string title)
     {
-        return await _dispatcher.InvokeAsync(() =>
+        return await Task.Run(() =>
         {
             var dialog = new SaveFileDialog
             {
@@ -43,11 +43,12 @@ public class WpfFileDialogService : IFileDialogService
                 Title = title
             };
             return dialog.ShowDialog() == true ? dialog.FileName : null;
-        }, DispatcherPriority.ApplicationIdle);
-    }
+        }).ConfigureAwait(false);
+    
+}
     public async Task<string> PickFileAsync(string filter, string title)
     {
-        return await _dispatcher.InvokeAsync(() =>
+        return await Task.Run(() =>
         {
             var dialog = new OpenFileDialog
             {
@@ -55,7 +56,7 @@ public class WpfFileDialogService : IFileDialogService
                 Title = title
             };
             return dialog.ShowDialog() == true ? dialog.FileName : null;
-        }, DispatcherPriority.ApplicationIdle);
+        }).ConfigureAwait(false);
     }
 
 }

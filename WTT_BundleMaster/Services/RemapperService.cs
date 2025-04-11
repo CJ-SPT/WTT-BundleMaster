@@ -135,33 +135,42 @@ namespace WTT_BundleMaster
         const int maxRetries = 5;
         const int delayMs = 100;
         int retryCount = 0;
+        bool success = false;
 
-        while (true)
+        try
         {
-            try
+            while (retryCount <= maxRetries)
             {
-                var json = await File.ReadAllTextAsync(path);
-                RemapEntries = JsonConvert.DeserializeObject<List<BundleRemapEntry>>(json);
-                Log($"Loaded remap file with {RemapEntries.Sum(r => r.AssetRemaps.Count)} entries");
-                IsRemapLoaded = true;
-                NotifyStateChanged();
-                return;
-            }
-            catch (IOException ex) when (ex.HResult == -2147024864 && retryCount < maxRetries) // ERROR_SHARING_VIOLATION
-            {
-                retryCount++;
-                await Task.Delay(delayMs);
-            }
-            catch (Exception ex)
-            {
-                Log($"Error loading remap file: {ex.Message}", "error");
-                RemapEntries = null;
-                NotifyStateChanged();
-                return;
+                try
+                {
+                    var json = await File.ReadAllTextAsync(path);
+                    RemapEntries = JsonConvert.DeserializeObject<List<BundleRemapEntry>>(json);
+                    Log($"Loaded remap file with {RemapEntries.Sum(r => r.AssetRemaps.Count)} entries");
+                    IsRemapLoaded = true;
+                    success = true;
+                    return;
+                }
+                catch (IOException ex) when (ex.HResult == -2147024864 && retryCount < maxRetries)
+                {
+                    retryCount++;
+                    await Task.Delay(delayMs);
+                }
             }
         }
+        catch (Exception ex)
+        {
+            Log($"Error loading remap file: {ex.Message}", "error");
+        }
+        finally
+        {
+            if (!success)
+            {
+                RemapEntries = null;
+                IsRemapLoaded = false;
+            }
+            NotifyStateChanged();
+        }
     }
-
 
     public async Task GenerateRemapAsync()
     {
