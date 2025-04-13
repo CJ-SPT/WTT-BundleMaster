@@ -15,42 +15,31 @@ public partial class MainWindow
     {
         InitializeComponent();
     
-        var initialServices = new ServiceCollection();
-        initialServices.AddWpfBlazorWebView();
-        Resources["services"] = initialServices.BuildServiceProvider();
-    
-        _ = InitializeServicesAsync();
+        _ = InitializeServices();
     }
 
-    private async Task InitializeServicesAsync()
+    private async Task InitializeServices()
     {
         var serviceCollection = new ServiceCollection();
-        
         var syncContext = new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher);
         serviceCollection.AddSingleton<SynchronizationContext>(syncContext);
-        
-        var configTask = _configService.InitializeAsync();
-        
+
+        await _configService.InitializeAsync();
         serviceCollection.AddWpfBlazorWebView();
         serviceCollection.AddBlazorWebViewDeveloperTools();
         serviceCollection.AddSingleton<LogService>();
         serviceCollection.AddSingleton<IFileDialogService, WpfFileDialogService>();
         serviceCollection.AddScoped<RemapperService>();
         serviceCollection.AddScoped<ReplacerService>();
-
         serviceCollection.AddMudServices(config => 
         {
             config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.TopCenter;
-            
             config.SnackbarConfiguration.MaxDisplayedSnackbars = 5;
         });
-        
-        await configTask;
+
         serviceCollection.AddSingleton(_configService);
-        
-        await Dispatcher.InvokeAsync(() => 
-        {
-            Resources["services"] = serviceCollection.BuildServiceProvider();
-        });
+
+        var serviceProvider = serviceCollection.BuildServiceProvider();
+        Resources["services"] = serviceProvider;
     }
 }

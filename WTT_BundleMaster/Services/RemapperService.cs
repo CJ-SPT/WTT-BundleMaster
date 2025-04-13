@@ -14,9 +14,45 @@ namespace WTT_BundleMaster
         private readonly BundleMapper _mapper = new BundleMapper();
         private readonly IFileDialogService _fileDialogService;
         private readonly ConfigurationService _config;
-        public string GamePath { get; set; }
-        public string SdkPath { get; set; }
-        public string OutputPath { get; set; }
+        private string _gamePath;
+        public string GamePath
+        {
+            get => _gamePath;
+            set
+            {
+                if (_gamePath != value)
+                {
+                    _gamePath = value;
+                    NotifyStateChanged();
+                }
+            }
+        }
+        private string _sdkPath;
+        public string SdkPath
+        {
+            get => _sdkPath;
+            set
+            {
+                if (_sdkPath != value)
+                {
+                    _sdkPath = value;
+                    NotifyStateChanged();
+                }
+            }
+        }
+        private string _outputPath;
+        public string OutputPath
+        {
+            get => _outputPath;
+            set
+            {
+                if (_outputPath != value)
+                {
+                    _outputPath = value;
+                    NotifyStateChanged();
+                }
+            }
+        }
         public bool IsProcessing { get; private set; }
         public double Progress { get; private set; }
         public string CurrentFile { get; private set; }
@@ -102,8 +138,8 @@ namespace WTT_BundleMaster
             {
                 GamePath = newPath; 
                 await _config.UpdateConfigAsync(c => c.LastRemapGamePath = newPath);
+                NotifyStateChanged();
             }
-            NotifyStateChanged();
         }
 
         public async Task PickSdkPath()
@@ -113,8 +149,8 @@ namespace WTT_BundleMaster
             {
                 SdkPath = newPath;
                 await _config.UpdateConfigAsync(c => c.LastRemapSdkPath = newPath);
+                NotifyStateChanged();
             }
-            NotifyStateChanged();
         }
 
         public async Task PickOutputPath()
@@ -125,8 +161,8 @@ namespace WTT_BundleMaster
                 await _config.UpdateConfigAsync(c => {
                     c.LastRemapOutputPath = OutputPath;
                 });
+                NotifyStateChanged();
             }
-            NotifyStateChanged();
         }
     public List<BundleRemapEntry>? RemapEntries { get; private set; }
 

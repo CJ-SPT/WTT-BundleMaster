@@ -160,7 +160,10 @@
     
     private async void OnServiceStateChanged()
     {
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(() =>
+        {
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

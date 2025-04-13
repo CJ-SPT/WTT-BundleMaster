@@ -88,6 +88,7 @@ public class ReplacerService : IDisposable
         }
         finally
         {
+            _logger.Log("Bundle processing completed successfully!", "success");
             _assetsManager.UnloadAll();
         }
     }

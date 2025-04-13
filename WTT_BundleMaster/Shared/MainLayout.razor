@@ -87,10 +87,23 @@
 @code {
     private MudTheme _theme = new();
     private Action _configChangedHandler;
-
+    private bool _isConfigUpdatePending;
+    private void HandleConfigUpdate()
+    {
+        if (_isConfigUpdatePending) return;
+        _isConfigUpdatePending = true;
+        Task.Delay(100).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                StateHasChanged();
+                _isConfigUpdatePending = false;
+            });
+        });
+    }
     protected override async Task OnInitializedAsync()
     {
-        _configChangedHandler = () => StateHasChanged();
+        _configChangedHandler = HandleConfigUpdate;
         ConfigService.OnConfigUpdated += _configChangedHandler;
         await base.OnInitializedAsync();
     }
@@ -118,7 +131,7 @@
     
     private async void HandleRemapStateChanged()
     {
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged); // Remove Task.Delay
     }
     
 
