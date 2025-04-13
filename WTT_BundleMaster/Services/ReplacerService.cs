@@ -304,17 +304,3 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
     }
 }
 
-public sealed class TempFile : IDisposable
-{
-    public string Path { get; }
-
-    public TempFile()
-    {
-        Path = System.IO.Path.GetTempFileName();
-    }
-
-    public void Dispose()
-    {
-        try { File.Delete(Path); } catch { /* Ignore */ }
-    }
-}
