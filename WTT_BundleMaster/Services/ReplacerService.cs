@@ -66,7 +66,7 @@ public class ReplacerService : IDisposable
 
             var total = bundlePaths.Count;
             var processed = 0;
-
+            
             await Parallel.ForEachAsync(bundlePaths, options, async (bundlePath, ct) =>
             {
                 try
@@ -86,19 +86,25 @@ public class ReplacerService : IDisposable
                 }
             });
         }
+        catch (Exception ex)
+        {
+            _logger.Log($"Error processing budnles: {ex.Message}", "error");
+        }
         finally
         {
             _logger.Log("Bundle processing completed successfully!", "success");
             _assetsManager.UnloadAll();
+            Thread.Sleep(100);
         }
     }
+    
     public async Task ProcessSingleBundle(string inputPath, string outputPath, 
         Dictionary<string, string> cabMap, Dictionary<long, long> pathMap)
     {
         // Generate unique temp filenames
         string tempOutputPath = Path.GetTempFileName();
         string finalTempPath = Path.GetTempFileName();
-    
+
         try
         {
             // Load and process bundle
@@ -112,7 +118,7 @@ public class ReplacerService : IDisposable
             {
                 // 1. Save to first temp file
                 SaveModifiedBundle(bundle, assetsFile, tempOutputPath);
-            
+
                 // 2. Immediately unload original resources
                 _assetsManager.UnloadBundleFile(bundle);
                 _assetsManager.UnloadAssetsFile(assetsFile);
@@ -133,6 +139,10 @@ public class ReplacerService : IDisposable
                 // Direct copy if no modifications
                 File.Copy(inputPath, outputPath, overwrite: true);
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"Error processing budnle: {ex.Message}", "error");
         }
         finally
         {
@@ -292,9 +302,10 @@ public class ReplacerService : IDisposable
                     File.Delete(path);
                 return;
             }
-            catch
+            catch (Exception ex)
             {
-                Thread.Sleep(10 * (i + 1));
+                _logger.Log($"Exception has occurred {ex.Message}", "error");
+                //Thread.Sleep(10 * (i + 1));
             }
         }
     }
