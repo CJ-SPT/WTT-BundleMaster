@@ -39,91 +39,87 @@ public class ReplacerService : IDisposable
     }
 
 
-    public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<BundleRemapEntry>? remapEntries)
+public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<BundleRemapEntry>? remapEntries)
+{
+    var cabMap = remapEntries?
+        .GroupBy(r => r.OldCabId, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(
+            g => g.Key,
+            g => g.First().NewCabId,
+            StringComparer.OrdinalIgnoreCase
+        ) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    var pathMap = remapEntries?
+        .SelectMany(r => r.AssetRemaps)
+        .GroupBy(a => a.OldPathId)
+        .ToDictionary(g => g.Key, g => g.First().NewPathId) ?? new Dictionary<long, long>();
+
+    try
     {
-        var cabMap = remapEntries
-            .GroupBy(r => r.OldCabId, StringComparer.OrdinalIgnoreCase) 
-            .ToDictionary(
-                g => g.Key, 
-                g => g.First().NewCabId, 
-                StringComparer.OrdinalIgnoreCase 
-            );
-        
-        var pathMap = remapEntries
-            .SelectMany(r => r.AssetRemaps)
-            .GroupBy(a => a.OldPathId)
-            .ToDictionary(g => g.Key, g => g.First().NewPathId);
-        try
+        var options = new ParallelOptions
+        { 
+            MaxDegreeOfParallelism = Environment.ProcessorCount 
+        };
+
+        var bundlePaths = Directory.GetFiles(inputDir, "*", SearchOption.AllDirectories)
+            .Where(IsBundleFile)
+            .ToList();
+
+        var total = bundlePaths.Count;
+        var processed = 0;
+
+        await Parallel.ForEachAsync(bundlePaths, options, async (bundlePath, ct) =>
         {
-            var options = new ParallelOptions 
-            { 
-                MaxDegreeOfParallelism = Environment.ProcessorCount 
-            };
-
-            var bundlePaths = Directory.GetFiles(inputDir, "*", SearchOption.AllDirectories)
-                .Where(IsBundleFile)
-                .ToList();
-
-            var total = bundlePaths.Count;
-            var processed = 0;
-            
-            await Parallel.ForEachAsync(bundlePaths, options, async (bundlePath, ct) =>
+            try
             {
-                try
-                {
-                    var outputPath = Path.Combine(outputDir, Path.GetRelativePath(inputDir, bundlePath));
-                    Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-                
-                    await Task.Run(() => ProcessSingleBundle(bundlePath, outputPath, cabMap, pathMap));
+                var outputPath = Path.Combine(outputDir, Path.GetRelativePath(inputDir, bundlePath));
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-                    var current = Interlocked.Increment(ref processed);
-                    var progress = (int)((double)current / total * 100);
-                    _logger.Log($"Processed {Path.GetFileName(bundlePath)} ({progress}%)");
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log($"Error processing {bundlePath}: {ex.Message}", "error");
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.Log($"Error processing budnles: {ex.Message}", "error");
-        }
-        finally
-        {
-            _logger.Log("Bundle processing completed successfully!", "success");
-            _assetsManager.UnloadAll();
-            Thread.Sleep(100);
-        }
+                var assetsManager = new AssetsManager();
+                await Task.Run(() => ProcessSingleBundle(assetsManager, bundlePath, outputPath, cabMap, pathMap));
+
+                var current = Interlocked.Increment(ref processed);
+                var progress = (int)((double)current / total * 100);
+                _logger.Log($"Processed {Path.GetFileName(bundlePath)} ({progress}%)");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Error processing {bundlePath}: {ex.Message}", "error");
+            }
+        });
     }
+    catch (Exception ex)
+    {
+        _logger.Log($"Error processing bundle: {ex.Message}", "error");
+    }
+    finally
+    {
+        _logger.Log("Bundle processing completed successfully!", "success");
+        Thread.Sleep(100);
+    }
+}
     
-    public async Task ProcessSingleBundle(string inputPath, string outputPath, 
+    public async Task ProcessSingleBundle(AssetsManager assetsManager, string inputPath, string outputPath, 
         Dictionary<string, string> cabMap, Dictionary<long, long> pathMap)
     {
-        // Generate unique temp filenames
         string tempOutputPath = Path.GetTempFileName();
         string finalTempPath = Path.GetTempFileName();
 
         try
         {
-            // Load and process bundle
-            var bundle = _assetsManager.LoadBundleFile(inputPath);
-            var assetsFile = _assetsManager.LoadAssetsFileFromBundle(bundle, 0);
+            var bundle = assetsManager.LoadBundleFile(inputPath);
+            var assetsFile = assetsManager.LoadAssetsFileFromBundle(bundle, 0);
 
             bool modified = ProcessCabDependencies(assetsFile, cabMap);
-            modified |= ProcessAssetsFile(_assetsManager, assetsFile, pathMap);
+            modified |= ProcessAssetsFile(assetsManager, assetsFile, pathMap);
 
             if (modified)
             {
-                // 1. Save to first temp file
                 SaveModifiedBundle(bundle, assetsFile, tempOutputPath);
 
-                // 2. Immediately unload original resources
-                _assetsManager.UnloadBundleFile(bundle);
-                _assetsManager.UnloadAssetsFile(assetsFile);
+                assetsManager.UnloadBundleFile(bundle);
+                assetsManager.UnloadAssetsFile(assetsFile);
 
-                // 3. Handle compression in isolated scope
                 if (_config.Config.CompressBundles)
                 {
                     CompressModifiedBundle(tempOutputPath, finalTempPath);
@@ -136,7 +132,6 @@ public class ReplacerService : IDisposable
             }
             else
             {
-                // Direct copy if no modifications
                 File.Copy(inputPath, outputPath, overwrite: true);
             }
         }
@@ -146,7 +141,6 @@ public class ReplacerService : IDisposable
         }
         finally
         {
-            // Robust cleanup with retry logic
             SafeDelete(tempOutputPath);
             SafeDelete(finalTempPath);
         }
@@ -305,7 +299,6 @@ public class ReplacerService : IDisposable
             catch (Exception ex)
             {
                 _logger.Log($"Exception has occurred {ex.Message}", "error");
-                //Thread.Sleep(10 * (i + 1));
             }
         }
     }

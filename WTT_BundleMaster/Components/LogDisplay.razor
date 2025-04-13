@@ -29,7 +29,7 @@
     
         await InvokeAsync(async () => {
             StateHasChanged();
-            await Task.Delay(100); // Allow UI thread to breathe
+            await Task.Delay(100);
         });
     }
     protected override void OnInitialized()
