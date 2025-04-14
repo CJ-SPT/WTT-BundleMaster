@@ -8,7 +8,6 @@ namespace WTT_BundleMaster;
 
 public class ReplacerService : IDisposable
 {
-    private readonly AssetsManager _assetsManager = new AssetsManager();
     private readonly LogService _logger;
     private readonly ConfigurationService _config;
     
@@ -20,7 +19,6 @@ public class ReplacerService : IDisposable
     
     public void Dispose()
     {
-        _assetsManager.UnloadAll();
     }
     
     private bool IsBundleFile(string filePath)
@@ -110,7 +108,7 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
             var bundle = assetsManager.LoadBundleFile(inputPath);
             var assetsFile = assetsManager.LoadAssetsFileFromBundle(bundle, 0);
 
-            bool modified = ProcessCabDependencies(assetsFile, cabMap);
+            bool modified = ProcessCabDependencies(assetsManager, assetsFile, cabMap);
             modified |= ProcessAssetsFile(assetsManager, assetsFile, pathMap);
 
             if (modified)
@@ -134,6 +132,8 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
             {
                 File.Copy(inputPath, outputPath, overwrite: true);
             }
+            assetsManager.UnloadAssetsFile(assetsFile);
+            assetsManager.UnloadBundleFile(bundle);
         }
         catch (Exception ex)
         {
@@ -198,7 +198,7 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
         return modified;
     }
 
-    private bool ProcessCabDependencies(AssetsFileInstance assetsFile, Dictionary<string, string> cabMap)
+    private bool ProcessCabDependencies(AssetsManager assetsManager,AssetsFileInstance assetsFile, Dictionary<string, string> cabMap)
     {
         bool modified = false;
 
@@ -224,7 +224,7 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
 
         foreach (var asset in assetsFile.file.AssetInfos)
         {
-            var baseField = _assetsManager.GetBaseField(assetsFile, asset);
+            var baseField = assetsManager.GetBaseField(assetsFile, asset);
             modified |= ReplaceCabIdsInStrings(baseField, cabMap);
         }
 
