@@ -9,7 +9,7 @@
     </div>
 
     <div style="overflow-y: auto; flex-grow: 1;">
-        @foreach (var log in LogService.Logs.Reverse().Take(50))
+        @foreach (var log in _displayedLogs)
         {
         <MudText Class="@GetLogClass(log.Level)" Typo="Typo.body2">
             [@log.Timestamp.ToString("HH:mm:ss")] @log.Message
@@ -20,18 +20,25 @@
 </MudPaper>
 
 @code {
-    
+    private IEnumerable<LogEntry> _displayedLogs => LogService.Logs
+        .Skip(Math.Max(0, LogService.Logs.Count - 50))
+        .Reverse();
+
     private DateTime _lastUpdate = DateTime.MinValue;
-    private async void Logs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    private Timer _updateTimer;
+    private bool _needsUpdate = false;
+    private void Logs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
     {
-        if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 100) return;
-        _lastUpdate = DateTime.Now;
-    
-        await InvokeAsync(async () => {
-            StateHasChanged();
-            await Task.Delay(100);
-        });
+        _needsUpdate = true;
+        _updateTimer?.Dispose();
+        _updateTimer = new Timer(_ =>
+        {
+            if (!_needsUpdate) return;
+            _needsUpdate = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 100, Timeout.Infinite);
     }
+
     protected override void OnInitialized()
     {
         LogService.Logs.CollectionChanged += Logs_CollectionChanged;
@@ -40,6 +47,7 @@
     public void Dispose()
     {
         LogService.Logs.CollectionChanged -= Logs_CollectionChanged;
+        _updateTimer?.Dispose();
         GC.SuppressFinalize(this);
     }
     
