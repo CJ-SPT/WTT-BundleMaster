@@ -11,14 +11,14 @@
     </TitleContent>
 
     <DialogContent>
-        <MudPaper Elevation="0" Class="pa-4">
+        <MudPaper Elevation="0" Class="@PaperClass">
             <MudCheckBox @bind-Value="LoadLastRemapOnStart"
                          Label="Load Default Remap on Application Start (2019-2022 Remap File)"
-                         Class="mb-3"/>
+                         Class="@CheckboxClass"/>
 
             <MudCheckBox @bind-Value="CompressBundles"
                          Label="Compress Bundles On Build (LZMA)"
-                         Class="mb-3"/>
+                         Class="@CheckboxClass"/>
         </MudPaper>
     </DialogContent>
 
@@ -28,78 +28,62 @@
 </MudDialog>
 
 @code {
-[CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
 
-private bool _loadLastRemapBacking;
+    private const string CheckboxClass = "mb-3";
+    private const string PaperClass = "pa-4";
 
-public bool LoadLastRemapOnStart
-{
-get => _loadLastRemapBacking;
-set
-{
-if (_loadLastRemapBacking == value)
-return;
+    private bool _loadLastRemapBacking;
+    private bool _compressBundlesBacking;
 
-_loadLastRemapBacking = value;
-_ = UpdateLoadLastRemapAsync(value);
-}
-}
-
-private bool _compressBundlesBacking;
-
-public bool CompressBundles
-{
-    get => _compressBundlesBacking;
-    set
+    public bool LoadLastRemapOnStart
     {
-        if (_compressBundlesBacking == value)
-            return;
-
-        _compressBundlesBacking = value;
-        _ = UpdateCompressBundlesAsync(value);
+        get => _loadLastRemapBacking;
+        set => SetAndUpdate(ref _loadLastRemapBacking, value, UpdateLoadLastRemapAsync);
     }
-}
 
-protected override void OnInitialized()
-{
-    _loadLastRemapBacking = ConfigService.Config.LoadLastRemapOnStart;
-    _compressBundlesBacking = ConfigService.Config.CompressBundles;
-}
-
-private async Task UpdateCompressBundlesAsync(bool newValue)
-{
-    ConfigService.Config.CompressBundles = newValue;
-        
-    _ = Task.Run(async () => 
+    public bool CompressBundles
     {
+        get => _compressBundlesBacking;
+        set => SetAndUpdate(ref _compressBundlesBacking, value, UpdateCompressBundlesAsync);
+    }
+
+    protected override void OnInitialized()
+    {
+        (_loadLastRemapBacking, _compressBundlesBacking) =
+            (ConfigService.Config.LoadLastRemapOnStart, ConfigService.Config.CompressBundles);
+    }
+
+    private async Task UpdateCompressBundlesAsync(bool newValue)
+    {
+        ConfigService.Config.CompressBundles = newValue;
         await ConfigService.SaveConfigurationAsync();
-        await InvokeAsync(() => Snackbar.Add("Compression setting updated", Severity.Success));
-    });
-        
-    StateHasChanged();
-}
+        Snackbar.Add("Compression setting updated", Severity.Success);
+        StateHasChanged();
+    }
 
-private async Task UpdateLoadLastRemapAsync(bool newValue)
-{
-    ConfigService.Config.LoadLastRemapOnStart = newValue;
-    
-    if (newValue)
+    private async Task UpdateLoadLastRemapAsync(bool newValue)
     {
-        _ = Task.Run(async () => 
+        ConfigService.Config.LoadLastRemapOnStart = newValue;
+
+        if (newValue)
         {
             await RemapperService.LoadDefaultRemapAsync();
-            await InvokeAsync(StateHasChanged);
-        });
-    }
-    
-    _ = Task.Run(async () => 
-    {
-        await ConfigService.SaveConfigurationAsync();
-        await InvokeAsync(() => Snackbar.Add("Settings updated", Severity.Success));
-    });
-    
-    StateHasChanged();
-}
+            StateHasChanged();
+        }
 
-private void Close() => MudDialog.Close();
+        await ConfigService.SaveConfigurationAsync();
+        Snackbar.Add("Settings updated", Severity.Success);
+        StateHasChanged();
+    }
+
+    private void SetAndUpdate<T>(ref T backingField, T newValue, Func<T, Task> updateFunc)
+    {
+        if (EqualityComparer<T>.Default.Equals(backingField, newValue)) return;
+
+        backingField = newValue;
+        _ = updateFunc(newValue);
+    }
+
+    private void Close() => MudDialog.Close();
 }

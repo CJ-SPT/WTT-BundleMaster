@@ -1,51 +1,76 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components;
+﻿using System.Collections.Concurrent;
 
 namespace WTT_BundleMaster
 {
     public class LogService
     {
-        private readonly SynchronizationContext _syncContext;
-        public ObservableCollection<LogEntry> Logs { get; } = new ObservableCollection<LogEntry>();
+        private readonly SynchronizationContext _syncContext; 
+        private readonly ConcurrentQueue<LogEntry> _logQueue = new(); 
+        private const int MaxLogs = 1000; 
+        private const int ThrottleDelay = 75;
+        private bool _isThrottled; 
+
+        public event Action? LogUpdated; 
 
         public LogService(SynchronizationContext syncContext)
         {
             _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
         }
 
+        public IReadOnlyCollection<LogEntry> Logs
+        {
+            get
+            {
+                lock (_logQueue)
+                {
+                    return _logQueue.ToArray(); 
+                }
+            }
+        }
+
         public void Log(string message, string level = "info")
         {
-            var entry = new LogEntry 
-            { 
-                Message = message, 
+            var entry = new LogEntry
+            {
+                Message = message,
                 Level = level, 
-                Timestamp = DateTime.Now 
+                Timestamp = DateTime.Now
             };
 
-            _syncContext.Post(_ =>
+            lock (_logQueue)
             {
-                Logs.Add(entry);
-                if (Logs.Count > 1000)
+                _logQueue.Enqueue(entry);
+                if (_logQueue.Count > MaxLogs)
                 {
-                    Logs.RemoveAt(0);
+                    _logQueue.TryDequeue(out _); 
                 }
-            }, null);
+            }
+
+            if (!_isThrottled)
+            {
+                _isThrottled = true;
+                _syncContext.Post(_ =>
+                {
+                    LogUpdated?.Invoke();
+                    Task.Delay(ThrottleDelay).ContinueWith(_ => _isThrottled = false); 
+                }, null);
+            }
         }
 
         public void Clear()
         {
-            _syncContext.Post(_ =>
+            lock (_logQueue)
             {
-                Logs.Clear();
-            }, null);
+                _logQueue.Clear(); 
+            }
+            _syncContext.Post(_ => LogUpdated?.Invoke(), null);
         }
     }
+
     public class LogEntry
     {
         public DateTime Timestamp { get; set; }
         public string Message { get; set; } = "";
-        public string Level { get; set; } = "info";
+        public string Level { get; set; } = "info"; 
     }
 }
