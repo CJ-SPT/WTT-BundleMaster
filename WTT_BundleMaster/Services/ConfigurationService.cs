@@ -7,7 +7,6 @@ namespace WTT_BundleMaster.Services;
 public class ConfigurationService
 {
     public event Action OnConfigUpdated;
-    private readonly SemaphoreSlim _fileLock = new SemaphoreSlim(1, 1);
     private readonly string _configPath = "userSettings.json";
     private AppConfig _config = new();
 
@@ -21,32 +20,23 @@ public class ConfigurationService
     }
     public async Task SaveConfigurationAsync()
     {
-        await _fileLock.WaitAsync();
-        try
-        {
-            var json = JsonSerializer.Serialize(_config);
-            await using var fileStream = new FileStream(
-                _configPath, 
-                FileMode.Create, 
-                FileAccess.Write, 
-                FileShare.None, 
-                bufferSize: 4096, 
-                useAsync: true
-            );
+        var json = JsonSerializer.Serialize(_config);
+        await using var fileStream = new FileStream(
+            _configPath, 
+            FileMode.Create, 
+            FileAccess.Write, 
+            FileShare.None, 
+            bufferSize: 4096, 
+            useAsync: true
+        );
             
-            var bytes = Encoding.UTF8.GetBytes(json);
-            await fileStream.WriteAsync(bytes);
-            OnConfigUpdated?.Invoke();
-        }
-        finally
-        {
-            _fileLock.Release();
-        }
+        var bytes = Encoding.UTF8.GetBytes(json);
+        await fileStream.WriteAsync(bytes);
+        OnConfigUpdated?.Invoke();
     }
 
     public async Task LoadConfigurationAsync()
     {
-        await _fileLock.WaitAsync();
         try
         {
             if (!File.Exists(_configPath))
@@ -55,7 +45,7 @@ public class ConfigurationService
                 return;
             }
 
-            using var fileStream = new FileStream(
+            await using var fileStream = new FileStream(
                 _configPath, 
                 FileMode.Open, 
                 FileAccess.Read, 
@@ -71,10 +61,6 @@ public class ConfigurationService
         catch
         {
             _config = new AppConfig();
-        }
-        finally
-        {
-            _fileLock.Release();
         }
     }
 
