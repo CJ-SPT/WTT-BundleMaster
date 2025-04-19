@@ -2,6 +2,7 @@
 @inject ConfigurationService ConfigService
 @inject RemapperService RemapperService
 @inject LogService LogService
+@inject IFileDialogService FileDialogService
 @inject ISnackbar Snackbar
 
 <MudDialog OnBackdropClick="OnClose">
@@ -33,10 +34,10 @@
             <MudFlexBreak/>
             
             <MudTextField Label="Game Path"
-                          @bind-Value="RemapperService.GamePath"
+                          @bind-Value="ConfigService.Config.GamePath"
                           Variant="Variant.Outlined"
-                          ReadOnly
                           Class="mb-2"
+                          ReadOnly="true"
                           Tooltip="Location of CURRENT game build (Valid CAB/Path IDs) │ Typically: {your_game_path_data_folder}/StreamingAssets/Windows"/>
             
             <MudTooltip>
@@ -44,7 +45,7 @@
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                FullWidth="true"
-                               OnClick="() => RemapperService.PickGamePath()"
+                               OnClick="PickGamePath"
                                StartIcon="@Icons.Material.Filled.FolderOpen"
                                EndIcon="@Icons.Material.Filled.HelpOutline">
                         Browse Current Game Files
@@ -133,6 +134,18 @@
 
         backingField = newValue;
         _ = updateFunc(newValue);
+    }
+    
+    public async Task PickGamePath()
+    {
+        var newPath = await FileDialogService.PickDirectoryAsync("Select Game Path");
+        if (!string.IsNullOrEmpty(newPath))
+        {
+            ConfigService.Config.GamePath = newPath; 
+            await ConfigService.UpdateConfigAsync(c => c.LastRemapGamePath = newPath);
+
+            StateHasChanged();
+        }
     }
     
     private void OnClose()

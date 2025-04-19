@@ -1,4 +1,7 @@
-﻿@inject LogService LogService
+﻿@using WTT_BundleMaster.Services
+@inject ConfigurationService Config
+@inject LogService LogService
+@inject FileSearcherService SearchService
 
 <MudGrid>
     <MudItem xs="12">
@@ -11,7 +14,7 @@
         <MudButton Variant="Variant.Filled"
                    Color="Color.Secondary"
                    FullWidth="true"
-                   OnClick="() => Search()"
+                   OnClick="() => OnSearch()"
                    StartIcon="@Icons.Material.Filled.Construction"
                    EndIcon="@Icons.Material.Filled.HelpOutline">
             Search
@@ -20,14 +23,16 @@
 </MudGrid>
 
 @code {
-    private string _searchToken;
-
-
-    private void Search()
+    private string _searchToken = string.Empty;
+    
+    private async Task OnSearch()
     {
         if (_searchToken == string.Empty)
         {
-            LogService.Log("Cannot search for an empty string");
+            LogService.Log("Cannot search for an empty string", LogLevel.Warning);
+            return;
         }
+
+        await SearchService.SearchAssetFiles(_searchToken);
     }
 }

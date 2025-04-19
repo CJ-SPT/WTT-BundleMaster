@@ -144,19 +144,7 @@ namespace WTT_BundleMaster
             _logService.Log(message, level);
             NotifyStateChanged();
         }
-
-
-        public async Task PickGamePath()
-        {
-            var newPath = await _fileDialogService.PickDirectoryAsync("Select Game Path");
-            if (!string.IsNullOrEmpty(newPath))
-            {
-                GamePath = newPath; 
-                await _config.UpdateConfigAsync(c => c.LastRemapGamePath = newPath);
-                NotifyStateChanged();
-            }
-        }
-
+        
         public async Task PickSdkPath()
         {
             var newPath = await _fileDialogService.PickDirectoryAsync("Select SDK Path");
