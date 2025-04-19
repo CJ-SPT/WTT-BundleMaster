@@ -82,17 +82,17 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
             }
             catch (Exception ex)
             {
-                _logger.Log($"Error processing {bundlePath}: {ex.Message}", "error");
+                _logger.Log($"Error processing {bundlePath}: {ex.Message}", LogLevel.Error);
             }
         });
     }
     catch (Exception ex)
     {
-        _logger.Log($"Error processing bundle: {ex.Message}", "error");
+        _logger.Log($"Error processing bundle: {ex.Message}", LogLevel.Error);
     }
     finally
     {
-        _logger.Log("Bundle processing completed successfully!", "success");
+        _logger.Log("Bundle processing completed successfully!", LogLevel.Success);
         Thread.Sleep(100);
     }
 }
@@ -137,7 +137,7 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
         }
         catch (Exception ex)
         {
-            _logger.Log($"Error processing budnle: {ex.Message}", "error");
+            _logger.Log($"Error processing budnle: {ex.Message}", LogLevel.Error);
         }
         finally
         {
@@ -298,7 +298,7 @@ public async Task ProcessBundlesAsync(string inputDir, string outputDir, List<Bu
             }
             catch (Exception ex)
             {
-                _logger.Log($"Exception has occurred {ex.Message}", "error");
+                _logger.Log($"Exception has occurred {ex.Message}", LogLevel.Error);
             }
         }
     }

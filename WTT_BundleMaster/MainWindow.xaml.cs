@@ -31,6 +31,7 @@ public partial class MainWindow
         serviceCollection.AddSingleton<IFileDialogService, WpfFileDialogService>();
         serviceCollection.AddScoped<RemapperService>();
         serviceCollection.AddScoped<ReplacerService>();
+        serviceCollection.AddScoped<FileSearcherService>();
         serviceCollection.AddMudServices(config => 
         {
             config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.TopCenter;

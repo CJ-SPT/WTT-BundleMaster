@@ -15,6 +15,10 @@ namespace WTT_BundleMaster
         private readonly IFileDialogService _fileDialogService;
         private readonly ConfigurationService _config;
         private string _gamePath;
+        
+        /// <summary>
+        /// The path to the root of the tarkov installation
+        /// </summary>
         public string GamePath
         {
             get => _gamePath;
@@ -27,6 +31,17 @@ namespace WTT_BundleMaster
                 }
             }
         }
+        
+        /// <summary>
+        /// The path to the `EscapeFromTarkov_Data` directory
+        /// </summary>
+        public string GameDataPath => Path.Combine(_gamePath, "EscapeFromTarkov_Data");
+        
+        /// <summary>
+        /// The path to the `EscapeFromTarkov_Data/StreamingAssets/Windows` directory
+        /// </summary>
+        public string WindowsPath => Path.Combine(GameDataPath, "StreamingAssets", "Windows");
+        
         private string _sdkPath;
         public string SdkPath
         {
@@ -116,15 +131,15 @@ namespace WTT_BundleMaster
             
                     RemapEntries = JsonConvert.DeserializeObject<List<BundleRemapEntry>>(json);
                     IsRemapLoaded = true;
-                    _logService.Log("Default remap loaded successfully", "success");
+                    _logService.Log("Default remap loaded successfully", LogLevel.Success);
                 }
             }
             catch (Exception ex)
             {
-                _logService.Log($"Remap load error: {ex.Message}", "error");
+                _logService.Log($"Remap load error: {ex.Message}", LogLevel.Error);
             }
         }
-        public void Log(string message, string level = "info")
+        public void Log(string message, LogLevel level = LogLevel.Info)
         {
             _logService.Log(message, level);
             NotifyStateChanged();
@@ -195,7 +210,7 @@ namespace WTT_BundleMaster
         }
         catch (Exception ex)
         {
-            Log($"Error loading remap file: {ex.Message}", "error");
+            Log($"Error loading remap file: {ex.Message}", LogLevel.Error);
         }
         finally
         {
@@ -290,7 +305,7 @@ namespace WTT_BundleMaster
                     File.Delete(tempFilePath);
             }
 
-            Log($"Processed {modifiedFiles.Count} files, {remapData.Sum(r => r.AssetRemaps.Count)} assets remapped", "success");
+            Log($"Processed {modifiedFiles.Count} files, {remapData.Sum(r => r.AssetRemaps.Count)} assets remapped", LogLevel.Success);
             if (!string.IsNullOrEmpty(OutputPath))
             {
                 await LoadRemapAsync(OutputPath);
@@ -311,25 +326,25 @@ namespace WTT_BundleMaster
         }
 
 
-        private BundleRemapEntry ProcessFileInternal(string modifiedPath)
+        private BundleRemapEntry? ProcessFileInternal(string modifiedPath)
         {
             var currentFile = Path.GetRelativePath(SdkPath, modifiedPath);
             try
             {
                 var modifiedData = _mapper.ProcessBundle(modifiedPath);
-                var originalPath = Path.Combine(GamePath, currentFile);
+                var originalPath = Path.Combine(WindowsPath, currentFile);
 
                 if (!File.Exists(originalPath))
                 {
-                    Log($"Skipping {currentFile} - original not found", "warning");
+                    Log($"Skipping {currentFile} - original not found", LogLevel.Warning);
                     return null;
                 }
 
                 var originalData = _mapper.ProcessBundle(originalPath);
 
-                if (modifiedData?.Assets == null || originalData?.Assets == null)
+                if (modifiedData.Assets == null || originalData?.Assets == null)
                 {
-                    Log($"Invalid bundle data in {currentFile}", "warning");
+                    Log($"Invalid bundle data in {currentFile}", LogLevel.Warning);
                     return null;
                 }
 
@@ -337,7 +352,7 @@ namespace WTT_BundleMaster
             }
             catch (Exception ex)
             {
-                Log($"Error processing {currentFile}: {ex.Message}", "error");
+                Log($"Error processing {currentFile}: {ex.Message}", LogLevel.Error);
                 return null;
             }
         }

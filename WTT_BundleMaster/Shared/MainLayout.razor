@@ -4,6 +4,7 @@
 @inject ConfigurationService ConfigService
 @inject IDialogService DialogService
 @inject RemapperService RemapperService
+@inject FileSearcherService SearchService
 <MudThemeProvider Theme="_theme" IsDarkMode="@ConfigService.Config.DarkMode" />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -67,6 +68,13 @@
                     <MudExpansionPanel Text="Bundle Processor" Icon="@Icons.Material.Filled.AutoFixHigh" Class="mt-4 mb-4">
                         <PanelContent Class="pa-3">  <!-- Add padding inside panel -->
                             <BundleModifier />
+                        </PanelContent>
+                    </MudExpansionPanel>
+
+                    <!-- Search Service Section -->
+                    <MudExpansionPanel Text="Shared Assets Search" Icon="@Icons.Material.Filled.Search" Class="mt-4 mb-4">
+                        <PanelContent Class="pa-3">  <!-- Add padding inside panel -->
+                            <SearchPanel />
                         </PanelContent>
                     </MudExpansionPanel>
                 </MudContainer>

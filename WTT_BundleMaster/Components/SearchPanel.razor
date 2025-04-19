@@ -1,0 +1,34 @@
+﻿@using Microsoft.VisualBasic.Logging
+@inject LogService LogService
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudTextField Label="Search Shared Assets"
+                      @bind-Value="_searchToken"
+                      Variant="Variant.Outlined"
+                      Class="mb-2"
+                      Tooltip="Search shared assets for the specified entity"/>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Secondary"
+                   FullWidth="true"
+                   OnClick="() => Search()"
+                   StartIcon="@Icons.Material.Filled.Construction"
+                   EndIcon="@Icons.Material.Filled.HelpOutline">
+            Search
+        </MudButton>
+    </MudItem>    
+</MudGrid>
+
+@code {
+    private string _searchToken;
+
+
+    private void Search()
+    {
+        if (_searchToken == string.Empty)
+        {
+            LogService.Log("Cannot search for an empty string");
+        }
+    }
+}

@@ -238,7 +238,7 @@
     {
         if (!Directory.Exists(_bundlePath))
         {
-            RemapperService.Log("Invalid bundle directory", "error");
+            RemapperService.Log("Invalid bundle directory", LogLevel.Error);
             return;
         }
 
@@ -258,11 +258,11 @@
                 finalOutputPath,
                 RemapperService.RemapEntries
             );
-            RemapperService.Log("Bundle processing completed successfully!", "success");
+            RemapperService.Log("Bundle processing completed successfully!", LogLevel.Success);
         }
         catch (Exception ex)
         {
-            RemapperService.Log($"Error processing bundles: {ex.Message}", "error");
+            RemapperService.Log($"Error processing bundles: {ex.Message}", LogLevel.Error);
         }
     }
 }
