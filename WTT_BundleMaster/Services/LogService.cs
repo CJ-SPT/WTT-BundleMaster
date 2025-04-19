@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using WTT_BundleMaster.Services;
 
 namespace WTT_BundleMaster;
 
@@ -10,11 +11,18 @@ public class LogService
     private const int ThrottleDelay = 75;
     private bool _isThrottled; 
 
+    private readonly ConfigurationService _config;
+    private LogLevel CurrentLogLevel => _config.Config.LogLevel;
+    
     public event Action? LogUpdated; 
 
-    public LogService(SynchronizationContext syncContext)
+    public LogService(
+        SynchronizationContext syncContext,
+        ConfigurationService config
+        )
     {
         _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
+        _config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
     public IReadOnlyCollection<LogEntry> Logs
@@ -30,6 +38,8 @@ public class LogService
 
     public void Log(string message, LogLevel level = LogLevel.Info)
     {
+        if (!ShouldLog(level)) return;
+        
         var entry = new LogEntry
         {
             Message = message,
@@ -65,6 +75,13 @@ public class LogService
         }
         _syncContext.Post(_ => LogUpdated?.Invoke(), null);
     }
+
+    private bool ShouldLog(LogLevel level)
+    {
+        if (CurrentLogLevel == LogLevel.Debug) return true;
+        
+        return (int)level <= (int)CurrentLogLevel;
+    }
 }
 
 public class LogEntry
@@ -76,9 +93,10 @@ public class LogEntry
 
 public enum LogLevel
 {
-    Debug,
-    Info,
-    Warning,
+    None = 0,
     Error,
-    Success
+    Success,
+    Warning,
+    Info,
+    Debug
 }

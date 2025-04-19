@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
@@ -25,8 +24,8 @@ public class ConfigurationService
         await _fileLock.WaitAsync();
         try
         {
-            var json = await Task.Run(() => JsonSerializer.Serialize(_config));
-            using var fileStream = new FileStream(
+            var json = JsonSerializer.Serialize(_config);
+            await using var fileStream = new FileStream(
                 _configPath, 
                 FileMode.Create, 
                 FileAccess.Write, 
@@ -36,7 +35,7 @@ public class ConfigurationService
             );
             
             var bytes = Encoding.UTF8.GetBytes(json);
-            await fileStream.WriteAsync(bytes, 0, bytes.Length);
+            await fileStream.WriteAsync(bytes);
             OnConfigUpdated?.Invoke();
         }
         finally

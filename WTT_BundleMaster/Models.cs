@@ -39,6 +39,7 @@ public class AppConfig
     public string LastRemapOutputPath { get; set; } = string.Empty;
     public string LastRemapGamePath { get; set; } = string.Empty;
     public string LastRemapSdkPath { get; set; } = string.Empty;
-    
     public bool CompressBundles { get; set; } = true;
+    
+    public LogLevel LogLevel { get; set; } = LogLevel.Success;
 }

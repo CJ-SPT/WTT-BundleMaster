@@ -1,17 +1,16 @@
-﻿@using System.Text.Json
-@using WTT_BundleMaster.Services
+﻿@using WTT_BundleMaster.Services
 @inject ConfigurationService ConfigService
 @inject RemapperService RemapperService
 @inject LogService LogService
 @inject ISnackbar Snackbar
 
-<MudDialog>
+<MudDialog OnBackdropClick="OnClose">
     <TitleContent>
         <MudText Typo="Typo.h6">Application Settings</MudText>
     </TitleContent>
 
     <DialogContent>
-        <MudPaper Elevation="0" Class="@PaperClass">
+        <MudStack Elevation="0" Class="@PaperClass">
             <MudCheckBox @bind-Value="LoadLastRemapOnStart"
                          Label="Load Default Remap on Application Start (2019-2022 Remap File)"
                          Class="@CheckboxClass"/>
@@ -19,17 +18,27 @@
             <MudCheckBox @bind-Value="CompressBundles"
                          Label="Compress Bundles On Build (LZMA)"
                          Class="@CheckboxClass"/>
-        </MudPaper>
-
-        <!-- Game Path Section -->
-        <MudItem xs="12" md="6">
+            
+            <MudText>Logging Level</MudText>
+            
+            <MudSlider
+                TickMarks="true"
+                TickMarkLabels="@_logLevels"
+                Min="0"
+                Max="_logLevels.Length - 1"
+                Step="1"
+                Value="SelectedLoggingLevel"
+                ValueChanged="@((int val) => OnLoggingLevelChanged(val))"/>
+            
+            <MudFlexBreak/>
+            
             <MudTextField Label="Game Path"
                           @bind-Value="RemapperService.GamePath"
                           Variant="Variant.Outlined"
                           ReadOnly
                           Class="mb-2"
                           Tooltip="Location of CURRENT game build (Valid CAB/Path IDs) │ Typically: {your_game_path_data_folder}/StreamingAssets/Windows"/>
-
+            
             <MudTooltip>
                 <ChildContent>
                     <MudButton Variant="Variant.Filled"
@@ -46,12 +55,11 @@
                     Typically: {your_game_path_data_folder}/StreamingAssets/Windows
                 </TooltipContent>
             </MudTooltip>
-        </MudItem>
-        
+        </MudStack>
     </DialogContent>
 
     <DialogActions>
-        <MudButton OnClick="Close" Color="Color.Secondary">Close</MudButton>
+        <MudButton OnClick="OnClose" Color="Color.Secondary">Close</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -63,7 +71,17 @@
 
     private bool _loadLastRemapBacking;
     private bool _compressBundlesBacking;
-
+    private int _selectedLogLevel;
+    
+    private readonly string[] _logLevels = [ 
+        nameof(LogLevel.None), 
+        nameof(LogLevel.Error),
+        nameof(LogLevel.Success),
+        nameof(LogLevel.Warning),
+        nameof(LogLevel.Info),
+        nameof(LogLevel.Debug),
+    ];
+    
     public bool LoadLastRemapOnStart
     {
         get => _loadLastRemapBacking;
@@ -75,6 +93,8 @@
         get => _compressBundlesBacking;
         set => SetAndUpdate(ref _compressBundlesBacking, value, UpdateCompressBundlesAsync);
     }
+
+    public int SelectedLoggingLevel => (int)ConfigService.Config.LogLevel;
 
     protected override void OnInitialized()
     {
@@ -94,17 +114,19 @@
     {
         ConfigService.Config.LoadLastRemapOnStart = newValue;
 
-        if (newValue)
-        {
-            await RemapperService.LoadDefaultRemapAsync();
-            StateHasChanged();
-        }
-
-        await ConfigService.SaveConfigurationAsync();
-        Snackbar.Add("Settings updated", Severity.Success);
+        if (!newValue) return;
+        
+        await RemapperService.LoadDefaultRemapAsync();
         StateHasChanged();
     }
 
+    private void OnLoggingLevelChanged(int newValue)
+    {
+        _selectedLogLevel = newValue;
+        ConfigService.Config.LogLevel = (LogLevel)newValue;
+        StateHasChanged();
+    }
+    
     private void SetAndUpdate<T>(ref T backingField, T newValue, Func<T, Task> updateFunc)
     {
         if (EqualityComparer<T>.Default.Equals(backingField, newValue)) return;
@@ -112,6 +134,13 @@
         backingField = newValue;
         _ = updateFunc(newValue);
     }
-
-    private void Close() => MudDialog.Close();
+    
+    private void OnClose()
+    {
+        // Don't await this here, it causes a delay in the dialog closing.
+        ConfigService.SaveConfigurationAsync();
+        Snackbar.Add("Settings Updated", Severity.Success);
+        StateHasChanged();
+        MudDialog.Close();
+    }
 }
